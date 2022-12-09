@@ -1,4 +1,10 @@
-function [cp, cd, cl, cl_KJ] = hess_smith(naca_id, npanel, cfg, varargin)
+% This matlab file was written for the project carried out as part of the
+% Aerodynamics course (AERO0001-1), academic year 2022-2023.
+%
+% author:  Guilain Ernotte <gernotte@student.uliege.be>
+% created: 2022-10-15T14:48+02:00
+
+function [cp, cd, cl, cl_KJ] = hess_smith(naca_id, npanel, cfg, opts)
 % HESS_SMITH  Implementation of the Hess & Smith straight panel method.
 %
 % 1. Parameter settings.
@@ -12,26 +18,23 @@ function [cp, cd, cl, cl_KJ] = hess_smith(naca_id, npanel, cfg, varargin)
 %		NACA number of the airfoil.
 %	npanel: double
 %		Number of panels used.
-%	cfg: double
-%		Type of configuration desired, corresponding to the index of the desired
-%		wind tunnel test. The serie of the performed tests is stored in
-%		group_5.mat.
-%	varargin: 1x1 cell.
-%		The cell consist of a char array that holds optional flags 'p' and 'w'.
+%	cfg: double | 1x2 double
+%		Type of configuration desired.
+%		- If the input is a scalar, it corresponds to the index of the
+%		  desired wind tunnel test. The serie of the performed tests is
+%		  stored in group_5.mat.
+%		- If the input is a 1x2 double, it correspond to the couple of
+%		  the angle of attack [°] and the free stream velocity [m/s].
+%	opts: char {'p'|'w'}, optional
+%		Optional flags:
 %		'p' -> Enable plots creation.
 %		'w' -> Write data in external file (see write_results()).
-%
-% This matlab function was written for the project carried out as part of the
-% Aerodynamics course (AERO0001-1), academic year 2022-2023.
-% author:  Guilain Ernotte <gernotte@student.uliege.be>
-% created: 2022-10-15T14:48+02:00
 
 %% 1. Parameter settings.
 
-% Unpack the optional flags from varargin.
-opts = '';
-if ~isempty(varargin)
-	opts = varargin{1};
+% Set opts to an empty char if no flags are given.
+if nargin == 3
+	opts = '';
 end
 
 % Informations about the wind tunnel setup.
@@ -41,11 +44,18 @@ lab_set = load('setup.mat');
 % This structure contains the data saved in group_5.mat.
 lab_res = load('group_5.mat');
 
-% General parameters.
-c       = lab_set.chord;      % Chordwise length of the wing [m].
-rho     = lab_set.rho;        % Air density [kg/m³].
-v_inf   = lab_res.Uinf(cfg);  % Free stream velocity [m/s].
-aoa     = lab_res.AoA(cfg);   % Angle of attack [°].
+% Flow physical properties.
+c   = lab_set.chord;  % Chordwise length of the wing [m].
+rho = lab_set.rho;    % Air density [kg/m³].
+
+% Simulation configuration: angle of attack and free stream velocity.
+if isscalar(cfg)
+	aoa   = lab_res.AoA(cfg);
+	v_inf = lab_res.Uinf(cfg);
+else
+	aoa   = cfg(1);
+	v_inf = cfg(2);
+end
 aoa_rad = deg2rad(aoa);
 
 % Assertions on parameters value.
@@ -54,7 +64,7 @@ assert(~mod(npanel, 2), ...
 assert(all([c, npanel, v_inf] >= 0), ...
 	"Aberrant input value detected (negative quantity).");
 assert(length(naca_id) == 4, ...
-	"This script only supports NACA 4-digits airfoils.");
+	"This function only supports NACA 4-digits airfoils.");
 
 %% 2. Airfoil and panel geometry.
 
