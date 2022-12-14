@@ -4,6 +4,8 @@
 % author:  Guilain Ernotte <gernotte@student.uliege.be>
 % created: 2022-10-15T14:48+02:00
 
+% TODO: implement transition point calculation.
+
 function [cp, cd, cl, cl_KJ] = hess_smith(naca_id, npanel, cfg, opts)
 % HESS_SMITH  Implementation of the Hess & Smith straight panel method.
 %
@@ -33,7 +35,7 @@ function [cp, cd, cl, cl_KJ] = hess_smith(naca_id, npanel, cfg, opts)
 %% 1. Parameter settings.
 
 % Set opts to an empty char if no flags are given.
-if nargin == 3
+if nargin < 4
 	opts = '';
 end
 
@@ -312,14 +314,25 @@ end
 				+ gamma/(2*pi) * val_3(i);
 		end
 
+
+
+
 		% Pressure coefficient for each panel.
-		cp = 1 - (v_tan/v_inf).^2;
-		diff_cp = cp(1:end/2) - flip(cp(end/2+1:end));
-		diff_pressure = diff_cp * (0.5*rho*v_inf^2);
+		cp = 1 - (v_tan'/v_inf).^2;
+		cp_low = flip(cp(1:end/2));
+		cp_up = cp(end/2+1:end);
+
+		% Corresponding pressure.
+		p_low = 0.5*rho*v_inf^2 * cp_low;
+		p_up  = 0.5*rho*v_inf^2 * cp_up;
+
+		% Derivative of the lower and upper side of the airfoil.
+		slope_low = flip(dy(1:end/2)./dx(1:end/2));
+		slope_up  = dy(end/2+1:end)./dx(end/2+1:end);
 
 		% Axial and normal forces.
-		Nprime = trapz(x_bar(end/2+1:end), flip(diff_pressure));
-		Aprime = trapz(x_bar(end/2+1:end),flip(-diff_pressure'.*(dy(1:end/2)./dx(1:end/2))));
+		Nprime = trapz(x_bar(end/2+1:end), p_low-p_up);
+		Aprime = trapz(x_bar(end/2+1:end), p_up.*slope_up - p_low.*slope_low);
 
 		% Lift and drag forces.
 		Lprime = Nprime*cosd(aoa) - Aprime*sind(aoa);
@@ -328,6 +341,8 @@ end
 		% Lift and drag coefficients.
 		cl = Lprime / (0.5*rho*v_inf^2*c);
 		cd = Dprime / (0.5*rho*v_inf^2*c);
+		% cd is for sanity checks, and convergence study. cd should converge to
+		% zero, as this code assume a 2D inviscid flow.
 
 		% Lift coefficient from Kutta-Joukowski theorem.
 		% To be compared with previously computed cl.
@@ -339,7 +354,7 @@ end
 
 		figure('WindowStyle', 'docked');
 		hold on;
-		
+
 		% Lower surface.
 		plot( ...
 			x_bar(1:npanel/2)./c, ...
@@ -362,7 +377,7 @@ end
 	end
 
 	function write_results(X, Y, x_bar, cp, c)
-		% WRITE_RESULTS	 Write desired results in external files.
+		% WRITE_RESULTS  Write desired results in external files.
 
 		% Directory holding the result files.
 		dir = 'Results/';
