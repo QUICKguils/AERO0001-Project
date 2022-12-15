@@ -1,7 +1,7 @@
 % TODO: reformat the file registration. Badly implemented.
 
 function cl_aoa(v, opts)
-% CL_VS_AOA  Comparison of cl(aoa) between all methods used.
+% CL_VS_AOA  Comparison of cl(aoa) between different methods.
 %
 % Parameters:
 %	v: double {16|25}, optional
@@ -101,6 +101,7 @@ if contains(opts, 'w')
     for aoa = 1:length(aoas_num)
         fprintf(f, '%d, %.4f, %.4f, %.4f, %.4f, ', ...
 			aoas_num(aoa), cl_hs(aoa), cl_cm(aoas_num(aoa)));
+		% FIXME: this is not robust at all.
 		if any(aoas_num(aoa) == aoas_lab)
 			fprintf(f, '%.4f', cl_lab((aoa-6)/5));
 		end

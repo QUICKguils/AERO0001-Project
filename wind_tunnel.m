@@ -3,12 +3,18 @@ function [cl, cd] = wind_tunnel(cfg, opts)
 %
 % The code below was written for the project carried out as part of the
 % aerodynamics course (AERO0001-1).
+%
+% Parameters:
+%	cfg: double
+%		Type of configuration desired. Corresponds to the index of the
+%		desired wind tunnel test. The serie of the performed tests is
+%		stored in group_5.mat.
+%	opts: char {'p'|'w'}, optional
+%		Optional flags:
+%		'p' -> Enable plots creation.
+%		'w' -> Write data in external file.
 
-% TODO:
-% - wind tunnel corrections. Apparently, the corrections are quite negligible.
-% Caculate the eps factor, and say in the report that we would not take into
-% account this negligible correction.
-
+% Set default opts to an empty char (no plot, no write).
 if nargin < 2
 	opts = '';
 end
@@ -21,10 +27,6 @@ aoa   = lab_res.AoA(cfg);
 v_inf = lab_res.Uinf(cfg);
 rho   = lab_set.rho;
 c     = lab_set.chord;
-
-% Reynolds number
-% Rough: v16 -> 4.81e5
-%        v25 -> 7.44e5
 
 % % Wind tunnel corrections.
 % K1 = 0.52; % TODO: make sure of this coef.
@@ -51,18 +53,27 @@ end
 
 %% Computation of lift and drag coefficients.
 
-% Pressures on the upper and lower sides.
-p_up = flip(lab_res.p(cfg, 1:19));
-p_low = lab_res.p(cfg, 21:end);
+% Indexes of the pressure taps that faces each other on the upper
+% and lower side of the airfoil.
+taps_up  = flip([1:12, 14:19]);
+taps_low = [21:33, 35:39];
 
-dx_up = diff(flip([c, lab_set.coord_taps(1, 1:19)]));
-dy_up = diff(flip([0, lab_set.coord_taps(2, 1:19)]));
-dx_low = diff([lab_set.coord_taps(1, 21:end), c]);
-dy_low = diff([lab_set.coord_taps(2, 21:end), 0]);
+% Pressures on the upper and lower sides.
+p_up = lab_res.p(cfg, taps_up);
+p_low = lab_res.p(cfg, taps_low);
+
+% x-coordinate of the taps. They are the same on upper and lower side.
+x_taps = lab_set.coord_taps(1, taps_up);  % or taps_low. Equivalent.
+
+% Differences between adjacent x-coordinates.
+dx = diff([x_taps,  c]);
+% Differences between adjacent y-coordinates.
+dy_up  = diff([lab_set.coord_taps(2, taps_up),  0]);
+dy_low = diff([lab_set.coord_taps(2, taps_low), 0]);  % It is just the opposite.
 
 % Axial and normal forces.
-Nprime = trapz(lab_set.coord_taps(1, 21:end), p_low-p_up);
-Aprime = trapz(lab_set.coord_taps(1, 21:end), p_up.*(dy_up./dx_up) - p_low.*(dy_low./dx_low));
+Nprime = trapz(x_taps, p_low-p_up);
+Aprime = trapz(x_taps, p_up.*(dy_up./dx) - p_low.*(dy_low./dx));
 
 % Lift and drag forces.
 Lprime = Nprime*cosd(aoa) - Aprime*sind(aoa);
@@ -75,37 +86,57 @@ cd = Dprime / (0.5*rho*v_inf^2*c);
 %% 5. Local function definitions.
 
 	function plot_cp(xc, cp)
-		% Pressure coefficient graph.
-		figure('WindowStyle', 'docked'); hold on; grid;
+		% PLOT_CP  Plot the chordwise distribution of the cp.
+
+		figure('WindowStyle', 'docked');
+		hold on;
+
+		% Upper side.
 		plot( ...
 			xc(1:floor(end/2)),      ...
 			cp(cfg, 1:floor(end/2)), ...
 			'color', 'red',          ...
 			'Marker', 'x',           ...
 			'Linewidth', 1);
+
+		% Lower side.
 		plot( ...
 			xc(ceil(end/2):end),      ...
 			cp(cfg, ceil(end/2):end), ...
 			'color', 'blue',          ...
 			'Marker', 'x',            ...
 			'Linewidth', 1);
-		xlabel('x/c');
-		ylabel('Cp');
-		legend('Upper surface', 'Lower surface');
+
+		% Dress the plot.
 		title('Distribution of the pressure coefficient Cp along the chord');
+		xlabel('x/c');
+		ylabel('cp');
+		grid;
+		legend('Upper surface', 'Lower surface');
 		set(gca, 'YDir', 'reverse')
 	end
 
 	function write_results(xc, cp)
-		% Uncomment this section to write plotting data into external file.
+		% WRITE_RESULTS  Write desired results in external files.
+
+		% Specify the record file name.
+		filename = strcat( ...
+			'Results/', ...
+			'lab-cp', ...
+			'-a', num2str(floor(aoa)), ...
+			'-v', num2str(floor(v_inf)));
+
+		% Gather the data to store.
 		plot_up = [ ...
 			xc(1:floor(end/2)); ...
 			cp(config, 1:floor(end/2))]';
 		plot_low = [ ...
 			xc(ceil(end/2):end); ...
 			cp(config, ceil(end/2):end)]';
-		writematrix(plot_up, 'Results/lab-cp-a15v25up.csv');
-		writematrix(plot_low, 'Results/lab-cp-a15v25low.csv');
+
+		% Write in external file.
+		writematrix(plot_up,  strcat(filename, '-up.csv'));
+		writematrix(plot_low, strcat(filename, '-low.csv'));
 		writematrix(lab_set.coord_taps', 'Results/pressure_taps.csv');
 	end
 end
