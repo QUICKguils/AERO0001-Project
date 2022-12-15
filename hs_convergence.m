@@ -34,7 +34,7 @@ cfgs = 1:3;
 ncfg = numel(cfgs);
 
 % Create sample of panels, cls and cds.
-np_sample = 10:4:600
+np_sample = 10:4:600;
 np_size = numel(np_sample);
 cd_conv = zeros(ncfg, np_size);
 
