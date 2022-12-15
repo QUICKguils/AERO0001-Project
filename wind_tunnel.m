@@ -9,14 +9,13 @@ function [cl, cd] = wind_tunnel(cfg, opts)
 % Caculate the eps factor, and say in the report that we would not take into
 % account this negligible correction.
 
-% Set opts to an empty char if no flags are given.
-if nargin == 1
+if nargin < 2
 	opts = '';
 end
 
 % Import the wind tunnel experiment setup.
-lab_set = load('setup.mat');
-lab_res = load('group_5.mat');
+lab_set = load("setup.mat");
+lab_res = load("group_5.mat");
 % Unpack.
 aoa   = lab_res.AoA(cfg);
 v_inf = lab_res.Uinf(cfg);
@@ -52,16 +51,18 @@ end
 
 %% Computation of lift and drag coefficients.
 
-x = lab_set.coord_taps(1, 1:ceil(end/2));
-dx = diff([c, x]);
-y = lab_set.coord_taps(2, 1:ceil(end/2));
-dy = diff([0, y]);
+% Pressures on the upper and lower sides.
+p_up = flip(lab_res.p(cfg, 1:19));
+p_low = lab_res.p(cfg, 21:end);
 
-diff_p = lab_res.p(cfg, 1:ceil(end/2)) - flip(lab_res.p(cfg, ceil(end/2):end));
+dx_up = diff(flip([c, lab_set.coord_taps(1, 1:19)]));
+dy_up = diff(flip([0, lab_set.coord_taps(2, 1:19)]));
+dx_low = diff([lab_set.coord_taps(1, 21:end), c]);
+dy_low = diff([lab_set.coord_taps(2, 21:end), 0]);
 
 % Axial and normal forces.
-Nprime = trapz(x, diff_p);
-Aprime = trapz(x, diff_p .* (dy./dx));
+Nprime = trapz(lab_set.coord_taps(1, 21:end), p_low-p_up);
+Aprime = trapz(lab_set.coord_taps(1, 21:end), p_up.*(dy_up./dx_up) - p_low.*(dy_low./dx_low));
 
 % Lift and drag forces.
 Lprime = Nprime*cosd(aoa) - Aprime*sind(aoa);
@@ -103,7 +104,8 @@ cd = Dprime / (0.5*rho*v_inf^2*c);
 		plot_low = [ ...
 			xc(ceil(end/2):end); ...
 			cp(config, ceil(end/2):end)]';
-		writematrix(plot_up, 'Results/lab-cp-a15v25up.csv')
-		writematrix(plot_low, 'Results/lab-cp-a15v25low.csv')
+		writematrix(plot_up, 'Results/lab-cp-a15v25up.csv');
+		writematrix(plot_low, 'Results/lab-cp-a15v25low.csv');
+		writematrix(lab_set.coord_taps', 'Results/pressure_taps.csv');
 	end
 end
