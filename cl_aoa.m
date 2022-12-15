@@ -1,18 +1,28 @@
-function cl_aoa_lab(v, opts)
-% CL_VS_AOA  Comparison of cl vs aoa between all methods.
+% TODO: reformat the file registration. Badly implemented.
+
+function cl_aoa(v, opts)
+% CL_VS_AOA  Comparison of cl(aoa) between all methods used.
+%
+% Parameters:
+%	v: double {16|25}, optional
+%		Free stream velocity [m/s]. Default is 16 m/s.
+%	opts: char {'p'|'w'}, optional
+%		Optional flags:
+%		'p' -> Enable plots creation.
+%		'w' -> Write data in external file.
 
 %% Parameter settings.
 
-% Set default optional arguments and assert inputs.
+% Set defaults and assert inputs.
 if nargin == 0
 	v = 16;
 end
 if nargin <= 1
 	opts = 'p';
 end
-if nargin > 1
+if nargin >= 1
 	assert( ...
-		lab_v == 16 || lab_v == 25, ...
+		v == 16 || v == 25, ...
 		"Wind tunnel tests have only been performed for 16 m/s and 25 m/s.")
 end
 
@@ -27,21 +37,13 @@ end
 lab_res = load('group_5.mat');
 
 aoas_lab = lab_res.AoA(cfg);
-aoas_num = -5:5:15;
+aoas_num = -5:1:20;
 
 % init cl.
 cl_hs    = zeros(size(aoas_num));
 cl_lab   = zeros(size(aoas_lab));
 
 %% Lift coefficient computations.
-
-% cl Xfoil (inviscid). See screenshots.
-xfoil_inv = [-0.6316, 0.0001, 0.6317,  1.2586,  1.8760];
-
-% cl Xfoil (viscous). See screenshots.
-xfoil_visc = [ ...
-	-0.5213, 0, 0.5214, 1.0992, 1.2486; ...  % v = 16 m/s
-	-0.5320, 0, 0.5321, 1.1265, 1.3256];     % v = 25 m/s
 
 % cl hs (our panel code).
 for aoa = 1:length(aoas_num)
@@ -67,15 +69,9 @@ if contains(opts, 'p')
 	hold on;
 
 	% Plot all the methods.
-	plot(aoas_num, xfoil_inv(1, :), 'Marker','o');
-	if v == 16
-		plot(aoas_num, xfoil_visc(1, :), 'LineStyle', '-.', 'Marker','+');
-	else
-		plot(aoas_num, xfoil_visc(2, :), 'LineStyle', '-.', 'Marker','+');
-	end
 	plot(aoas_num, cl_hs, 'Marker','x');
 	plot(aoas_lab, cl_lab, 'Marker','^');
-	fplot(cl_cm, [-5, 16]);
+	fplot(cl_cm, [-5, 20]);
 
 	% Dress the plot.
 	title(['Cl vs aoa for v = ', num2str(v), ' m/s']);
@@ -83,13 +79,36 @@ if contains(opts, 'p')
 	ylabel("cl");
 	grid;
 	legend( ...
-		"Xfoil (inv.)", "Xfoil (visc.)", "Matlab code", "Wind tunnel", "Conformal mapping", ...
+		"Matlab code","Wind tunnel", "Conformal mapping", ...
 		'Location', 'northwest');
 end
 
 %% Results registration.
 
 if contains(opts, 'w')
-	
+	% Specify the record file name.
+	filename = strcat( ...
+		'Results/', ...
+		'lab_hs_the-cl_aoa', ...
+		'-v', num2str(v), ...
+		'.csv');
+
+    % Open the file for writing.
+    f = fopen(filename, 'w');
+
+    % Write the data to the file.
+    fprintf(f, 'aoa, cl_matlab, cl_conformal_mapping, cl_wind_tunnel\n');
+    for aoa = 1:length(aoas_num)
+        fprintf(f, '%d, %.4f, %.4f, %.4f, %.4f, ', ...
+			aoas_num(aoa), cl_hs(aoa), cl_cm(aoas_num(aoa)));
+		if any(aoas_num(aoa) == aoas_lab)
+			fprintf(f, '%.4f', cl_lab((aoa-6)/5));
+		end
+		fprintf(f, '\n');
+    end
+
+    % Close the file.
+    fclose(f);
 end
+
 end
